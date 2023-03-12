@@ -76,17 +76,3 @@ public class Author {
         return getId() != null ? getId().hashCode() : 0;
     }
 }
-<<<<<<< HEAD
-=======
-
-
-
-
-
-
-
-
-
-
-
->>>>>>> origin/2.1-jpa-equals
