@@ -78,11 +78,3 @@ public class Book {
         return getId() != null ? getId().hashCode() : 0;
     }
 }
-
-
-
-
-
-
-
-

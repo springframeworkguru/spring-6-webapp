@@ -76,14 +76,3 @@ public class Author {
         return getId() != null ? getId().hashCode() : 0;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
