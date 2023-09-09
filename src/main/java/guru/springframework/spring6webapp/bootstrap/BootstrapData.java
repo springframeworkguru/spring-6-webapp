@@ -30,7 +30,6 @@ public class BootstrapData implements CommandLineRunner {
         eric.setFirstName("Eric");
         eric.setLastName("Evans");
 
-
         Book ddd = new Book();
         ddd.setTitle("Domain Driven Design");
         ddd.setIsbn("123456");
@@ -39,7 +38,6 @@ public class BootstrapData implements CommandLineRunner {
         Book dddSaved = bookRepository.save(ddd);
 
         Author rod = new Author();
-
         rod.setFirstName("Rod");
         rod.setLastName("Johnson");
 
@@ -74,8 +72,6 @@ public class BootstrapData implements CommandLineRunner {
         authorRepository.save(rodSaved);
         bookRepository.save(dddSaved);
         bookRepository.save(noEJB);
-
-
 
 
         System.out.println("In Bootstrap");
