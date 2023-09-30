@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class BootstrapData implements CommandLineRunner {
 
     // Bla bla
+    // moo moo
 
 
     private final AuthorRepository authorRepository;
