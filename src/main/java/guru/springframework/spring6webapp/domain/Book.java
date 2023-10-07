@@ -6,7 +6,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 /**
- * Created by jt, Spring Framework Guru.
+ * Created by jt, Spring Framework Guru and Pangian
  */
 @Entity
 public class Book {
