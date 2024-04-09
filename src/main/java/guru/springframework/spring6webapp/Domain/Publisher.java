@@ -1,7 +1,6 @@
 package guru.springframework.spring6webapp.Domain;
 
 import jakarta.persistence.*;
-import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -9,24 +8,22 @@ public class Publisher {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
+    private Long id;
+
     private String publisherName;
     private String address;
     private String city;
     private String state;
     private String zipCode;
 
-    @ManyToMany
-    private Set<Publisher> Publishers = new HashSet<>();
-    public Set<Publisher> getPublishers() {
-        return Publishers;
-    }
+    @OneToMany(mappedBy = "publisher")
+    private Set<Book> books;
 
-    public long getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -70,33 +67,30 @@ public class Publisher {
         this.zipCode = zipCode;
     }
 
-    public void setPublishers(Set<Publisher> publishers) {
-        Publishers = publishers;
-    }
-
     @Override
     public String toString() {
         return "Publisher{" +
                 "id=" + id +
                 ", publisherName='" + publisherName + '\'' +
-                ", addres='" + address + '\'' +
+                ", address='" + address + '\'' +
                 ", city='" + city + '\'' +
                 ", state='" + state + '\'' +
                 ", zipCode='" + zipCode + '\'' +
-                ", Publishers=" + Publishers +
                 '}';
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Publisher publisher)) return false;
+        if (!(o instanceof Publisher)) return false;
 
-        return getId() == publisher.getId();
+        Publisher publisher = (Publisher) o;
+
+        return id != null ? id.equals(publisher.id) : publisher.id == null;
     }
 
     @Override
     public int hashCode() {
-        return (int) (getId() ^ (getId() >>> 32));
+        return id != null ? id.hashCode() : 0;
     }
 }
