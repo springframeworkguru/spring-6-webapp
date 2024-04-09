@@ -1,12 +1,10 @@
 package guru.springframework.spring6webapp.Domain;
 
 import jakarta.persistence.*;
+
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Created by jt, Spring Framework Guru.
- */
 @Entity
 public class Book {
 
