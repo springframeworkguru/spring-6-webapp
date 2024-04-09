@@ -18,7 +18,6 @@ public class Publisher {
 
     @ManyToMany
     private Set<Publisher> Publishers = new HashSet<>();
-
     public Set<Publisher> getPublishers() {
         return Publishers;
     }
