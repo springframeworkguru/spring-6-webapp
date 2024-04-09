@@ -12,11 +12,10 @@ public class Publisher {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private long id;
     private String publisherName;
-    private String addres;
+    private String address;
     private String city;
-
     private String state;
-    private String zip;
+    private String zipCode;
 
     @ManyToMany
     private Set<Publisher> Publishers = new HashSet<>();
@@ -41,12 +40,12 @@ public class Publisher {
         this.publisherName = publisherName;
     }
 
-    public String getAddres() {
-        return addres;
+    public String getAddress() {
+        return address;
     }
 
-    public void setAddres(String addres) {
-        this.addres = addres;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public String getCity() {
@@ -65,12 +64,12 @@ public class Publisher {
         this.state = state;
     }
 
-    public String getZip() {
-        return zip;
+    public String getZipCode() {
+        return zipCode;
     }
 
-    public void setZip(String zip) {
-        this.zip = zip;
+    public void setZipCode(String zipCode) {
+        this.zipCode = zipCode;
     }
 
     public void setPublishers(Set<Publisher> publishers) {
@@ -82,10 +81,10 @@ public class Publisher {
         return "Publisher{" +
                 "id=" + id +
                 ", publisherName='" + publisherName + '\'' +
-                ", addres='" + addres + '\'' +
+                ", addres='" + address + '\'' +
                 ", city='" + city + '\'' +
                 ", state='" + state + '\'' +
-                ", zip='" + zip + '\'' +
+                ", zipCode='" + zipCode + '\'' +
                 ", Publishers=" + Publishers +
                 '}';
     }

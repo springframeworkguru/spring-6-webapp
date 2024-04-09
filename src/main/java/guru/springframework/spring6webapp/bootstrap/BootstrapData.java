@@ -42,10 +42,10 @@ public class BootstrapData implements CommandLineRunner {
 
         Publisher publisher = new Publisher();
         publisher.setPublisherName("My Publisher");
-        publisher.setAddres("Straat");
+        publisher.setAddress("Straat");
         publisher.setState("Friesland");
         publisher.setCity("Sneek");
-        publisher.setZip("8604CZ");
+        publisher.setZipCode("8604CZ");
         publisherRepository.save(publisher);
 
         Author rodSaved = authorRepository.save(rod);
