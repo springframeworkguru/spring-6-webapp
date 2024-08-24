@@ -75,7 +75,20 @@ public class Book {
 
     @Override
     public String toString() {
-        return "Book { " + "id=" + id + ", title='" + title + '\'' + ", isbn='" + isbn + '\'' + ", authors=" + authors + "}";
+        return "Book{" +
+                "publisher=" + publisher +
+                ", id=" + id +
+                ", title='" + title + '\'' +
+                ", isbn='" + isbn + '\'' +
+                '}';
+    }
+
+    public String getFormattedAuthors() {
+        StringBuffer stringBuffer = new StringBuffer();
+        for(Author a:authors) {
+            stringBuffer.append(a.getProperName());
+        }
+        return stringBuffer.toString();
     }
 
     @Override

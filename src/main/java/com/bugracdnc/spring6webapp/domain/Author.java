@@ -63,9 +63,17 @@ public class Author {
         this.lastName = lastName;
     }
 
+    public String getProperName() {
+        return firstName + ' ' + lastName;
+    }
+
     @Override
     public String toString() {
-        return "Author {" + "id=" + id + ", firstName='" + firstName + '\'' + ", lastName='" + lastName + '\'' + ", books=" + books + " }";
+        return "Author{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                '}';
     }
 
     @Override
