@@ -9,15 +9,37 @@ import java.util.Set;
 @Entity
 public class Book {
 
+    @ManyToOne
+    private Publisher publisher;
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
     private String title;
     private String isbn;
-
     @ManyToMany
-    @JoinTable(name = "author book", joinColumns = @JoinColumn(name = "book id"), inverseJoinColumns = @JoinColumn(name = "author id"))
+    @JoinTable(name = "author_book", joinColumns = @JoinColumn(name = "book id"), inverseJoinColumns = @JoinColumn(name = "author id"))
     private Set<Author> authors = new HashSet<>();
+    public Book() {
+    }
+
+    public Book(String title, String isbn) {
+        this.title = title;
+        this.isbn = isbn;
+    }
+
+    public Book(String title, String isbn, Set<Author> authors) {
+        this.title = title;
+        this.isbn = isbn;
+        this.authors = authors;
+    }
+
+    public Publisher getPublisher() {
+        return publisher;
+    }
+
+    public void setPublisher(Publisher publisher) {
+        this.publisher = publisher;
+    }
 
     public Set<Author> getAuthors() {
         return authors;
@@ -53,12 +75,7 @@ public class Book {
 
     @Override
     public String toString() {
-        return "Book { " +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", isbn='" + isbn + '\'' +
-                ", authors=" + authors +
-                "}";
+        return "Book { " + "id=" + id + ", title='" + title + '\'' + ", isbn='" + isbn + '\'' + ", authors=" + authors + "}";
     }
 
     @Override
