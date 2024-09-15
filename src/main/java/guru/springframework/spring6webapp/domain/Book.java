@@ -1,4 +1,4 @@
-package com.guru.spring.simpleSpringWeb.domain;
+package guru.springframework.spring6webapp.domain;
 
 import jakarta.persistence.*;
 
