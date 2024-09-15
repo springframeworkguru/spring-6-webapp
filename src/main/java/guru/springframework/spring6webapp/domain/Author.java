@@ -3,7 +3,6 @@ package guru.springframework.spring6webapp.domain;
 
 import jakarta.persistence.*;
 
-import java.awt.print.Book;
 import java.util.Set;
 
 @Entity
