@@ -7,7 +7,6 @@ import guru.springframework.spring6webapp.repositories.AuthorRepository;
 import guru.springframework.spring6webapp.repositories.BookRepository;
 import guru.springframework.spring6webapp.repositories.PublisherRepository;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -47,16 +46,6 @@ public class BootstrapData implements CommandLineRunner {
         Author rodSaved = authorRepository.save(rod);
         Book noEJBSaved = bookRepository.save(noEJB);
 
-        ericSaved.getBooks().add(dddSaved);
-        rodSaved.getBooks().add(noEJBSaved);
-
-        authorRepository.save(ericSaved);
-        authorRepository.save(rod);
-
-        System.out.println("In bootstrap");
-        System.out.println("Author: " + authorRepository.count());
-        System.out.println("Book: " + bookRepository.count());
-
         Publisher randomHouse = new Publisher();
         randomHouse.setPublisherName("Random House");
         randomHouse.setAddress("123 Wall Street");
@@ -64,9 +53,28 @@ public class BootstrapData implements CommandLineRunner {
         randomHouse.setState("NY");
         randomHouse.setZip("12345");
 
-        Publisher publisherSave = publisherRepository.save(randomHouse);
+        Publisher publisherSaved = publisherRepository.save(randomHouse);
+        dddSaved.setPublisher(publisherSaved);
+        noEJBSaved.setPublisher(publisherSaved);
+
+        ericSaved.getBooks().add(dddSaved);
+        rodSaved.getBooks().add(noEJBSaved);
+
+
+        authorRepository.save(ericSaved);
+        authorRepository.save(rod);
+        bookRepository.save(dddSaved);
+        bookRepository.save(noEJBSaved);
+
+        System.out.println("In bootstrap");
+        System.out.println("Author: " + authorRepository.count());
+        System.out.println("Book: " + bookRepository.count());
+
+
 
         System.out.println("Publisher: " + publisherRepository.count());
+
+//        System.out.println("Number of books published by " + publisherSaved.getPublisherName() + " " +publisherSaved.getBooks().size());
 
 
 
