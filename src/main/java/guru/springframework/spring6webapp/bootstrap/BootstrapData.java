@@ -62,7 +62,7 @@ public class BootstrapData implements CommandLineRunner {
 
 
         authorRepository.save(ericSaved);
-        authorRepository.save(rod);
+        authorRepository.save(rodSaved);
         bookRepository.save(dddSaved);
         bookRepository.save(noEJBSaved);
 
