@@ -1,4 +1,4 @@
-package guru.springframework.spring6webapp;
+package ie.jprendiville.spring6webapp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

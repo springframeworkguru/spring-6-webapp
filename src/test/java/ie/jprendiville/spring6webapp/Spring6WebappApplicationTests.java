@@ -1,4 +1,4 @@
-package guru.springframework.spring6webapp;
+package ie.jprendiville.spring6webapp;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
