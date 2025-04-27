@@ -1,0 +1,102 @@
+== Mixed Annotations
+
+#@Id :#
+
+marks this field as the primary key.
+
+#@GeneratedValue(strategy = GenerationType.AUTO) :#
+
+lets JPA automatically choose the best way to generate unique IDs based on the database when a new record is
+     inserted.
+
+== JPA Many-to-Many Mapping
+
+*Primary Key (PK):*
+A unique identifier for each entity (@Id + usually auto-generated).
+
+*Foreign Key (FK):*
+A column in the join table pointing to the PK of the related entity.
+
+.Owner side (e.g., Book):
+- Annotate with `@ManyToMany` + `@JoinTable(...)`.
+- Defines join table name and FK column names.
+- JPA writes rows to this table when you persist/update.
+
+.Inverse side (e.g., Author):
+- Annotate with `@ManyToMany(mappedBy="authors")`.
+- No `@JoinTable` here—JPA just reads the mapping defined on the owner.
+- Changes to this side alone do NOT affect the join table.
+
+.Column names:
+- Strings in `@JoinColumn(name="author_id")` refer to DB columns.
+- JPA maps those to the entity’s PK field (e.g., `Author.id`).
+
+*Best practices:*
+- Use `Set<…>` to avoid duplicates.
+- Keep both sides in sync in code (add to both collections).
+- Only one side owns the mapping to prevent schema conflicts.
+
+
+
+ JPA Many-to-Many Quick Reference
+
+[cols="1,3", options="header"]
+|===
+| Concept  | Explanation
+
+| Primary Key (PK)
+| Unique identifier on each table.
+In JPA: `@Id`, usually on a `Long id` field.
+
+| Foreign Key (FK)
+| A column in one table referencing another table’s PK. (e.g book_id is FK to PK id from book table)
+In JPA you get this via `@JoinColumn(name="...")` inside `@JoinTable`.
+
+| Join Table
+| A bridge table (e.g., `author_book`) holding two FKs:
+- `book_id` → books.id
+- `author_id` → authors.id
+
+| Owning Side
+| The entity that defines `@JoinTable` and and manages the join table. +
+Example in Book: +
+@ManyToMany +
+@JoinTable( name = "author_book", joinColumns = @JoinColumn(name="book_id"), inverseJoinColumns = @JoinColumn
+(name="author_id") ) +
+private Set<Author> authors;
+
+
+| Inverse Side
+| The entity that uses `mappedBy` to refer back to the owner—no `@JoinTable` here.
+Example in Author: +
+@ManyToMany(mappedBy = "authors") +
+private Set<Book> books;
+
+
+| Why `mappedBy`?
+| Prevents JPA from creating a second join table.
+Ensures only **Book** writes to `author_book`, while **Author** just reads it.
+
+
+| Simple @ManyToMany
+| Direct link between two entities. +
+ Join table has only two columns: FK to each side. +
+ No extra fields possible.
+
+| Best Practice
+| - Keep both collections in sync in your Java code (add/remove on both sides). +
+- Use `Set` to avoid duplicates ( Set is a collection for unique elements with unique ID). +
+- Only one side owns the mapping. +
+- The join table name should reflect the order of columns.
+
+
+|Why Book is the Owning Side in our example of Many-to-Many
+
+| In JPA, either entity can be the owner of a Many-to-Many relationship.
+ Usually, the owner should be the entity that "controls" the relationship in the business logic. +
+ In a Book-Author system: +
+ We create a Book and assign Authors to it.
+ It makes more sense for Book to own the relationship.
+ If Author were the owner, we would have to update Authors objects every time we wanted to assign a Book, which feels unnatural (because
+ we create a new book, but we persist the author in this case after updating the book set in Author).
+|===
