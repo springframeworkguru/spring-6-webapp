@@ -1,3 +1,5 @@
+= JPA
+
 == Mixed Annotations
 
 #@Id :#
@@ -100,3 +102,11 @@ Ensures only **Book** writes to `author_book`, while **Author** just reads it.
  If Author were the owner, we would have to update Authors objects every time we wanted to assign a Book, which feels unnatural (because
  we create a new book, but we persist the author in this case after updating the book set in Author).
 |===
+
+*equals() and hashCode() in JPA:* +
+- we should override them, especially if you use Sets for relationships. +
+- Only use the immutable `id` field for comparisons. +
+- Do not include mutable fields like title, name, isbn in equals()/hashCode(). +
+- This ensures Sets work correctly and prevents Hibernate synchronization issues. +
+
+
