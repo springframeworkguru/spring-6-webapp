@@ -5,7 +5,6 @@ import java.util.Set;
 
 @Entity // this annotation indicates that this class is a JPA entity
 public class Author {
-
     @Id // This annotation indicates that this field is the primary key of the entity
     @GeneratedValue (strategy = GenerationType.AUTO) // this annotation specifies that the primary key will be generated automatically
     private Long idAuthor;

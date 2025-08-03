@@ -6,7 +6,6 @@ import java.util.Set;
 
 @Entity
 public class Book {
-
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long idBook;
