@@ -1,6 +1,8 @@
 package guru.springframework.spring6webapp.domain;
 
 import jakarta.persistence.*;
+
+import java.util.Objects;
 import java.util.Set;
 
 @Entity // this annotation indicates that this class is a JPA entity
@@ -45,4 +47,31 @@ public class Author {
     public void setBooks(Set<Book> books) {
         this.books = books;
     }
+
+    @Override
+    public String toString() {
+        return "Author{" +
+                "idAuthor=" + idAuthor +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                '}';
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (!(o instanceof Author author)) return false;
+
+        return Objects.equals(getIdAuthor(), author.getIdAuthor());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getIdAuthor());
+    }
+
 }
+
+
+
+
+
