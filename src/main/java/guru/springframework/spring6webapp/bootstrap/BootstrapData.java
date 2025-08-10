@@ -66,9 +66,11 @@ public class BootstrapData implements CommandLineRunner {
 
         savedNabil.getBooks().add(savedBookSpring6); // Add the first book to the first author
         savedTawfiq.getBooks().add(savedBookJava); // Add the second book to the second author
+        savedBookSpring6.getAuthors().add(savedNabil); // Add the first author to the first book
+        savedBookJava.getAuthors().add(savedTawfiq); // Add the second author to the second book
 
-        savedBookSpring6.setPublisher(javaPublisher); // Set the publisher for the first book
-        savedBookJava.setPublisher(savedSpringPublisher); // Set the publisher for the second book
+        savedBookSpring6.setPublisher(savedSpringPublisher); // Set the publisher for the first book
+        savedBookJava.setPublisher(savedJavaPublisher); // Set the publisher for the second book
 
         iAuthorRepositroy.save(savedNabil); // Save the updated first author
         iAuthorRepositroy.save(savedTawfiq); // Save the updated second author
