@@ -19,6 +19,17 @@ public class Book {
     inverseJoinColumns = @JoinColumn(name = "author_id")) // This annotation defines the join table for the many-to-many relationship
     private Set<Author> authors = new HashSet<>();
 
+    @ManyToOne
+    private Publisher publisher;
+
+    public Publisher getPublisher() {
+        return publisher;
+    }
+
+    public void setPublisher(Publisher publisher) {
+        this.publisher = publisher;
+    }
+
     public Long getIdBook() {
         return idBook;
     }
