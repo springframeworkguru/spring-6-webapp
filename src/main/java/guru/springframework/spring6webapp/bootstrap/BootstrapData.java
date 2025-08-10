@@ -5,7 +5,7 @@ import guru.springframework.spring6webapp.domain.Book;
 import guru.springframework.spring6webapp.domain.Publisher;
 import guru.springframework.spring6webapp.repositories.IAuthorRepositroy;
 import guru.springframework.spring6webapp.repositories.IBookRepository;
-import guru.springframework.spring6webapp.repositories.IPublisher;
+import guru.springframework.spring6webapp.repositories.IPublisherRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -14,65 +14,71 @@ public class BootstrapData implements CommandLineRunner {
 
     private final IAuthorRepositroy iAuthorRepositroy;
     private final IBookRepository iBookRepository;
-    private final IPublisher iPublisher;
+    private final IPublisherRepository iPublisherRepository;
 
-    public BootstrapData(IAuthorRepositroy iAuthorRepositroy, IBookRepository iBookRepository, IPublisher iPublisher) {
+    public BootstrapData(IAuthorRepositroy iAuthorRepositroy, IBookRepository iBookRepository, IPublisherRepository iPublisherRepository) {
         this.iAuthorRepositroy = iAuthorRepositroy;
         this.iBookRepository = iBookRepository;
-        this.iPublisher = iPublisher;
+        this.iPublisherRepository = iPublisherRepository;
     }
 
 
     @Override
     public void run(String... args) throws Exception {
-        Author author1 = new Author();
-        author1.setFirstName("Nabil");
-        author1.setLastName("Boutachrafine");
 
-        Book book1 = new Book();
-        book1.setTitle("Spring Framework 6");
-        book1.setIsbn("1234567890");
+        Author nabil = new Author(); // Create a new Author object
+        nabil.setFirstName("Nabil");
+        nabil.setLastName("Boutachrafine");
 
-        Publisher publisher = new Publisher();
-        publisher.setPublisherName("Spring Books Publishing");
-        publisher.setPublisherAddress("123 Spring St");
-        publisher.setPublisherCity("Springfield");
-        publisher.setPublisherState("Spring State");
-        publisher.setPublisherZip("12345");
+        Book b_spring_f6 = new Book(); // Create a new Book object
+        b_spring_f6.setTitle("Spring Framework 6");
+        b_spring_f6.setIsbn("1234567890");
 
-        Author authorSaved1 = iAuthorRepositroy.save(author1);
-        Book bookSaved1 = iBookRepository.save(book1);
-        Publisher publisherSaved = iPublisher.save(publisher);
+        Publisher springPublisher = new Publisher(); // Create a new Publisher object
+        springPublisher.setPublisherName("Spring Books");
+        springPublisher.setPublisherAddress("123 Spring St");
+        springPublisher.setPublisherCity("Springfield");
+        springPublisher.setPublisherState("Spring State");
+        springPublisher.setPublisherZip("12345");
 
-        Author author2 = new  Author();
-        author2.setFirstName("Tawfiq");
-        author2.setLastName("Boutachrafine");
+        Author savedNabil = iAuthorRepositroy.save(nabil); // Save the Author object to the repository
+        Book savedBookSpring6 = iBookRepository.save(b_spring_f6); // Save the Book object to the repository
+        Publisher savedSpringPublisher = iPublisherRepository.save(springPublisher); // Save the Publisher object to the repository
 
-        Book book2 = new Book();
-        book2.setTitle("Spring Boot 3");
-        book2.setIsbn("0987654321");
+        Author tawfiq = new Author();
+        tawfiq.setFirstName("Tawfiq");
+        tawfiq.setLastName("Boutachrafine");
 
-        Publisher publisher2 = new Publisher();
-        publisher2.setPublisherName("Spring Boot Books Publishing");
-        publisher2.setPublisherAddress("456 Spring Boot St");
-        publisher2.setPublisherCity("Spring Boot City");
-        publisher2.setPublisherState("Spring Boot State");
-        publisher2.setPublisherZip("54321");
+        Book book_java = new Book();
+        book_java.setTitle("Java Programming");
+        book_java.setIsbn("0987654321");
 
-        Author authorSaved2 = iAuthorRepositroy.save(author2);
-        Book bookSaved2 = iBookRepository.save(book2);
-        Publisher publisherSaved2 = iPublisher.save(publisher2);
+        Publisher javaPublisher = new Publisher();
+        javaPublisher.setPublisherName("Java Books");
+        javaPublisher.setPublisherAddress("456 Java Ave");
+        javaPublisher.setPublisherCity("Java City");
+        javaPublisher.setPublisherState("Java State");
+        javaPublisher.setPublisherZip("67890");
 
-        authorSaved1.getBooks().add(bookSaved1);
-        authorSaved2.getBooks().add(bookSaved2);
+        Author savedTawfiq = iAuthorRepositroy.save(tawfiq); // Save the second Author object
+        Book savedBookJava = iBookRepository.save(book_java); // Save the second Book object
+        Publisher savedJavaPublisher = iPublisherRepository.save(javaPublisher); // Save the first Publisher object
 
-        iAuthorRepositroy.save(authorSaved1);
-        iAuthorRepositroy.save(authorSaved2);
+        savedNabil.getBooks().add(savedBookSpring6); // Add the first book to the first author
+        savedTawfiq.getBooks().add(savedBookJava); // Add the second book to the second author
+
+        savedBookSpring6.setPublisher(javaPublisher); // Set the publisher for the first book
+        savedBookJava.setPublisher(savedSpringPublisher); // Set the publisher for the second book
+
+        iAuthorRepositroy.save(savedNabil); // Save the updated first author
+        iAuthorRepositroy.save(savedTawfiq); // Save the updated second author
+        iBookRepository.save(savedBookSpring6); // Save the updated first book
+        iBookRepository.save(savedBookJava); // Save the updated second book
 
         System.out.println("Bootstrap Data Loaded");
         System.out.println("Number of Authors: " + iAuthorRepositroy.count());
         System.out.println("Number of Books: " + iBookRepository.count());
-        System.out.println("Number of Publishers: " + iPublisher.count());
+        System.out.println("Number of Publishers: " + iPublisherRepository.count());
     }
 }
 
