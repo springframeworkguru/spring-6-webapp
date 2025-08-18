@@ -6,8 +6,4 @@ import guru.springframework.spring6webapp.domain.Book;
 
 public interface IBookRepository extends CrudRepository<Book, Long> {
 
-
-
-
-
 }
