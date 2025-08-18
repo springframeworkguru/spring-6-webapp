@@ -1,0 +1,179 @@
+= Spring Boot – Bootstrapping with JPA
+
+== Bootstrapping Data at Startup
+
+=== @Component + CommandLineRunner
+- `@Component` makes the class a Spring bean (discovered by component scanning).
+- `CommandLineRunner#run(..)` executes **after** the application context is ready
+(datasource, JPA, repositories all initialized).
+- Ideal place to **seed**/bootstrap dev data.
+
+=== Persistence Context (First?Level Cache)
+- Each `@Transactional` method has a **persistence context** (Hibernate Session).
+- The context holds **managed entities** and can return the **same instances**
+(so you may “see” in?memory changes even before they are flushed to DB).
+- `flush()` ? push pending SQL to the DB (entities remain managed).
+- `clear()` ? detach all currently managed entities (forces fresh DB loads later).
+
+=== Owner vs Inverse (Many?to?Many)
+- Only the **owning side** writes the join table.
+- If `Book` owns (`@ManyToMany @JoinTable(...)` on `Book`):
+- Link via `book.getAuthors().add(author)` (OWNER).
+- Optionally mirror `author.getBooks().add(book)` for **in?memory** consistency.
+- Persist/save the **owner** (`bookRepository.save(book)`).
+
+=== Example: Bootstrap with flush/clear and verification
+[source,java]
+----
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Component;
+import org.springframework.boot.CommandLineRunner;
+
+@Component
+public class BootstrapData implements CommandLineRunner {
+
+    private final IAuthorRepository authorRepository;
+    private final IBookRepository bookRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager; // Injected by Spring; manages the persistence context
+
+    public BootstrapData(IAuthorRepository authorRepository, IBookRepository bookRepository) {
+        this.authorRepository = authorRepository;
+        this.bookRepository = bookRepository;
+    }
+
+    /**
+     * Runs once at startup. The @Transactional keeps a single persistence context
+     * open while we insert, link, flush/clear, and verify the data.
+     */
+    @Transactional
+    @Override
+    public void run(String... args) {
+
+        // 0) Idempotency (avoid re-seeding on every restart)
+        if (authorRepository.count() > 0 || bookRepository.count() > 0) {
+            System.out.println("Bootstrap skipped (data already present).");
+            return;
+        }
+
+        // 1) Create Authors
+        Author eric = new Author();
+        eric.setFirstName("Eric");
+        eric.setLastName("Guru");
+
+        Author rod = new Author();
+        rod.setFirstName("Rod");
+        rod.setLastName("Johnson");
+
+        // 2) Create Books
+        Book ddd = new Book();
+        ddd.setTitle("Domain Driven Design");
+        ddd.setIsbn("123456");
+
+        Book noEJB = new Book();
+        noEJB.setTitle("J2EE Development without EJB");
+        noEJB.setIsbn("54757585");
+
+        // 3) Persist ends (order not strict; cascades could simplify this)
+        authorRepository.save(eric);
+        authorRepository.save(rod);
+        bookRepository.save(ddd);
+        bookRepository.save(noEJB);
+
+        // 4) LINK ON THE OWNING SIDE (Book owns @ManyToMany)
+        //    This is what causes join rows to be persisted.
+        ddd.getAuthors().add(eric);    // DDD ? Eric
+        noEJB.getAuthors().add(rod);   // noEJB ? Rod
+
+        // (Optional) Mirror inverse side for in-memory consistency
+        eric.getBooks().add(ddd);
+        rod.getBooks().add(noEJB);
+
+        // 5) Persist the OWNERs so Hibernate writes the join table rows
+        bookRepository.save(ddd);
+        bookRepository.save(noEJB);
+
+        System.out.println("In BootstrapData");
+        System.out.println("Author count: " + authorRepository.count());
+        System.out.println("Book count: " + bookRepository.count());
+
+        // 6) Force pending SQL to DB, then detach everything so re-reads hit the DB
+        entityManager.flush();  // push INSERTs for join table
+        entityManager.clear();  // detach managed instances (no cached collections)
+
+        // 7) VERIFY with fresh loads (no in-memory illusions)
+        Author ericDb = authorRepository.findById(eric.getId()).orElseThrow();
+        System.out.println("Eric’s books (from DB): " + ericDb.getBooks().size()); // expect 1
+
+        Book dddDb = bookRepository.findById(ddd.getId()).orElseThrow();
+        System.out.println("DDD book authors (from DB): " + dddDb.getAuthors().size()); // expect 1
+    }
+}
+----
+
+==== Mapping Reminder (owner = Book)
+[source,java]
+----
+@Entity
+public class Book {
+    @Id @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    private String title;
+    private String isbn;
+
+    @ManyToMany
+    @JoinTable(
+        name = "book_author", // name reflects column order (book_id first)
+        joinColumns = @JoinColumn(name = "book_id"),      // FK ? books.id (OWNER)
+        inverseJoinColumns = @JoinColumn(name = "author_id") // FK ? authors.id
+    )
+    private Set<Author> authors = new HashSet<>();
+
+    // Helper to keep both sides in sync
+    public void addAuthor(Author a) {
+        this.authors.add(a);     // OWNER side update
+        a.getBooks().add(this);  // mirror inverse side
+    }
+}
+
+@Entity
+public class Author {
+    @Id @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    private String firstName;
+    private String lastName;
+
+    @ManyToMany(mappedBy = "authors") // inverse side; does not write join table
+    private Set<Book> books = new HashSet<>();
+
+    // Helper for symmetry (optional)
+    public void addBook(Book b) {
+        this.books.add(b);
+        b.getAuthors().add(this);
+    }
+}
+----
+
+=== Why we call flush()/clear() **after** linking
+- At the very start of the method there are no managed entities yet ? `flush()`/`clear()` do nothing.
+- After we link & save on the owner, `flush()` forces Hibernate to execute INSERTs into the join table.
+- `clear()` then detaches all entities so the next repository calls **must** query the DB again.
+- This prevents reading stale in?memory collections and confirms **true persistence**.
+
+=== Quick Troubleshooting
+- Seeing `0` on inverse side after updates?
+You probably only updated the inverse (`author.getBooks()`). Update the **owner** (`book.getAuthors()`) and save the owner.
+- `LazyInitializationException`?
+Accessed a LAZY collection outside an active transaction. Fix by annotating the method with `@Transactional` (or use a fetch?join query).
+- Duplicate seed rows?
+Add an **idempotency guard** (e.g., `count()` check) or a unique constraint and catch exceptions.
+
+=== Takeaways
+- **Owner writes the join table**; always link on the owner’s collection.
+- Use `@Transactional` in bootstrappers that touch JPA collections.
+- Use `flush()` + `clear()` (or a new transaction) to **verify** DB state reliably.

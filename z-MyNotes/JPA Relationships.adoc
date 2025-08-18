@@ -1,17 +1,44 @@
-= JPA
 
-== Mixed Annotations
+= Spring boot
+
+== Spring Annotations
+
+#@Component :# +
+
+
+
+
+
+
+
+
+== JPA :
+
+=== Mixed Annotations
+
+#@Entity :# +
+
+When you put `@Entity` on a class:
+
+* Hibernate/Spring Data JPA will map it to a database table.
+
+* Each field becomes a column (unless you mark it @Transient).
+
+* It makes the class persistent (you can save, update, delete it in the DB).
+
+
+
 
 #@Id :#
 
-marks this field as the primary key.
+* marks this field as the primary key.
 
 #@GeneratedValue(strategy = GenerationType.AUTO) :#
 
-lets JPA automatically choose the best way to generate unique IDs based on the database when a new record is
+* lets JPA automatically choose the best way to generate unique IDs based on the database when a new record is
      inserted.
 
-== JPA Many-to-Many Mapping
+=== JPA Many-to-Many Mapping
 
 *Primary Key (PK):*
 A unique identifier for each entity (@Id + usually auto-generated).
@@ -109,4 +136,48 @@ Ensures only **Book** writes to `author_book`, while **Author** just reads it.
 - Do not include mutable fields like title, name, isbn in equals()/hashCode(). +
 - This ensures Sets work correctly and prevents Hibernate synchronization issues. +
 
+=== Example: Tables and Rows for Many-to-Many (Book owns Author)
 
+We insert two Books and two Authors:
+
+Books:
+* (id=101) "Java Mastery", isbn "111-AAA"
+* (id=102) "Spring Boot Magic", isbn "222-BBB"
+
+Authors:
+* (id=1) Alice Smith
+* (id=2) Bob Johnson
+
+Relations:
+* "Java Mastery" → Alice and Bob
+* "Spring Boot Magic" → Alice
+
+.Tables
+[cols="^1,^2,^2", options="header"]
+|===
+|id (PK)|title|isbn
+|101|Java Mastery|111-AAA
+|102|Spring Boot Magic|222-BBB
+|===
+
+[cols="^1,^2,^2", options="header"]
+|===
+|id (PK)|first_name|last_name
+|1|Alice|Smith
+|2|Bob|Johnson
+|===
+
+.Join table (book_author)
+[cols="^1,^1", options="header"]
+|===
+|book_id (FK → books.id)|author_id (FK → authors.id)
+|101|1
+|101|2
+|102|1
+|===
+
+Notes:
+* Join table name chosen: `book_author` (Book is owner; `book_id` column comes first).
+* One row = one link between a Book and an Author.
+* A book with N authors → N rows with the same `book_id`.
+* An author with M books → M rows with the same `author_id`.

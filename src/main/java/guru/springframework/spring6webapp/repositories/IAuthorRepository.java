@@ -6,6 +6,4 @@ import guru.springframework.spring6webapp.domain.Author;
 
 public interface IAuthorRepository extends CrudRepository<Author, Long> {
 
-
-
 }

@@ -1,5 +1,6 @@
 package guru.springframework.spring6webapp.domain;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -14,7 +15,7 @@ import jakarta.persistence.ManyToMany;
 /**
  * POJO (plain old java object : a regular java class with private fields,getters and setters. "Optional :May have constructors")
  */
-@Entity
+@Entity // JPA Anotation to be maped to the database
 public class Book {
 
     @Id
@@ -26,7 +27,7 @@ public class Book {
     @ManyToMany
     @JoinTable(name = "book_author", joinColumns = @JoinColumn(name = "book_id"),
                inverseJoinColumns = @JoinColumn(name = "author_id"))
-    private Set<Author> authors;
+    private Set<Author> authors = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -58,6 +59,12 @@ public class Book {
 
     public void setAuthors(Set<Author> authors) {
         this.authors = authors;
+    }
+
+
+    // Helper to keep both sides in sync
+    public void addAuthor(Author a) {
+        this.authors.add(a);     // OWNER side update
     }
 
     @Override

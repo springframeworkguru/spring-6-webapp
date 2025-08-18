@@ -29,7 +29,7 @@ public class Author {
 
     //(mappedBy = "authors") tells JPA: Don’t create a second join table here—just mirror the mapping defined on Book.authors
     @ManyToMany(mappedBy = "authors")
-    private Set<Book> books ;
+    private Set<Book> books = new HashSet<>() ;
 
 
     public Long getId() {
@@ -64,6 +64,12 @@ public class Author {
         this.books = books;
     }
 
+
+    // Helper for symmetry (optional)
+    public void addBook(Book b) {
+        this.books.add(b);
+    }
+
     @Override
     public String toString() {
         return "Author{" +
@@ -76,11 +82,10 @@ public class Author {
 
     @Override
     public final boolean equals(Object o) {
-        if (!(o instanceof Author)) {
+        if (!(o instanceof Author author)) {
             return false;
         }
 
-        Author author = (Author) o;
         return Objects.equals(getId(), author.getId());
     }
 
