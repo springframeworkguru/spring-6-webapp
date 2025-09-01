@@ -1,0 +1,5 @@
+services:
+  swagger-editor:
+    image: swaggerapi/swagger-editor:latest
+    ports:
+      - 127.0.0.1:7742:8080
