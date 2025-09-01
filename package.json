@@ -1,0 +1,28 @@
+{
+  "name": "spring-6-webapp",
+  "version": "1.0.0",
+  "description": "A Spring Boot 6 Web API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "swagger:up": "docker compose -f src/main/docker/swagger.yml up -d",
+    "swagger:down": "docker compose -f src/main/docker/swagger.yml down"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/timothystone/spring-6-webapp.git"
+  },
+  "keywords": [
+    "swagger",
+    "openapi",
+    "spring",
+    "spring-boot",
+    "api"
+  ],
+  "author": "Timothy Stone",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/timothystone/spring-6-webapp/issues"
+  },
+  "homepage": "https://github.com/timothystone/spring-6-webapp#readme"
+}
