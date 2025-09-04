@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 
 /**
  * POJO (plain old java object : a regular java class with private fields,getters and setters. "Optional :May have constructors")
@@ -28,6 +29,9 @@ public class Book {
     @JoinTable(name = "book_author", joinColumns = @JoinColumn(name = "book_id"),
                inverseJoinColumns = @JoinColumn(name = "author_id"))
     private Set<Author> authors = new HashSet<>();
+
+    @ManyToOne
+    private Publisher publisher;
 
     public Long getId() {
         return id;
@@ -61,10 +65,17 @@ public class Book {
         this.authors = authors;
     }
 
-
     // Helper to keep both sides in sync
     public void addAuthor(Author a) {
         this.authors.add(a);     // OWNER side update
+    }
+
+    public void setPublisher(Publisher publisher) {
+        this.publisher = publisher;
+    }
+
+    public Publisher getPublisher() {
+        return publisher;
     }
 
     @Override
