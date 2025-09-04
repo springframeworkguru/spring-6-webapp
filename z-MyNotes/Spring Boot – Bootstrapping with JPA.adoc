@@ -177,3 +177,764 @@ Add an **idempotency guard** (e.g., `count()` check) or a unique constraint and 
 - **Owner writes the join table**; always link on the owner’s collection.
 - Use `@Transactional` in bootstrappers that touch JPA collections.
 - Use `flush()` + `clear()` (or a new transaction) to **verify** DB state reliably.
+
+
+
+
+
+== JPA Entity Lifecycle, Persistence Context, clear()/detach(), and merge()
+
+=== Core Concepts
+
+*Persistence Context (L1 Cache)*
+- A per-transaction workspace where JPA tracks managed entities.
+- Repositories (`save`, `findById`, etc.) work with the persistence context behind the scenes.
+- Inside the same persistence context, reloading the same entity often returns the **same managed instance** (not a fresh copy).
+
+*Entity States*
+- *Transient*: `new Author()` — not tracked, no DB row yet.
+- *Managed*: tracked by JPA in the current persistence context; changes are auto-detected and flushed to the DB.
+- *Detached*: was managed, but context ended or was explicitly detached; JPA no longer tracks it.
+- *Removed*: scheduled for deletion.
+
+=== What clear() and detach() do
+
+`entityManager.clear()`
+- Detaches **all** currently managed entities from the persistence context.
+- After this call, previously managed objects become **detached**. Changes to them are **not** automatically flushed.
+
+`entityManager.detach(entity)`
+- Detaches **one** specific entity (leaves others managed).
+
+*Important:* Calling `flush()`/`clear()` at the **beginning** of a method usually does nothing (nothing managed yet). Do it **after** you save/link if you want to re-read fresh from the DB.
+
+=== Why you sometimes "see old values"
+- In one `@Transactional` method, the persistence context may return the **same managed instance** you just modified in memory (even if the DB wasn’t queried again).
+- That’s why verification should be done after:
+  1) `entityManager.flush()` (write pending SQL), and
+  2) `entityManager.clear()` (detach), then
+  3) re-fetch via repository (forces a DB round trip).
+
+=== Saving (save) and the returned object
+Inside the same transaction:
+- `repository.save(entity)` makes the object *managed* and assigns the ID.
+- The returned object is usually the same reference as the one you passed (`==` often true).
+- Teacher style uses the returned `savedEntity` to emphasize “now it’s persisted.”
+
+Across transactions or after `clear()`:
+- Your original reference is **detached**. Re-fetch (or merge) to get a **managed** instance again.
+
+=== Re-merging a Detached Entity
+
+Two ways:
+
+.Using EntityManager (JPA API):
+[source,java]
+----
+@Transactional
+public void updateAuthorDetached(EntityManager em, Author detached) {
+    // 'detached' has an ID but is not managed
+    Author managed = em.merge(detached); // returns a *managed* copy
+    // changes the managed instance
+    managed.setLastName("Updated");
+    // on transaction commit, SQL UPDATE is executed
+}
+----
+
+.Using Spring Data Repository:
+[source,java]
+----
+@Transactional
+public void updateAuthorDetached(IAuthorRepository repo, Author detached) {
+    // save(...) will effectively merge detached entities (by ID) in Spring Data JPA
+    detached.setLastName("Updated");
+    repo.save(detached); // merges and returns a managed instance
+}
+----
+
+*Key Notes*
+- `merge()` **copies state** from the detached instance into a managed instance and returns the managed one.
+- After `merge`, keep using the **returned managed** instance (not the old detached reference).
+
+=== Example: Putting it all together in a Bootstrapper
+
+We seed data, link a Many-to-Many (owner = Book), then flush/clear and verify via fresh loads.
+
+[source,java]
+----
+@Component
+public class BootstrapData implements CommandLineRunner {
+
+    private final IAuthorRepository authorRepository;
+    private final IBookRepository bookRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public BootstrapData(IAuthorRepository authorRepository,
+                         IBookRepository bookRepository) {
+        this.authorRepository = authorRepository;
+        this.bookRepository = bookRepository;
+    }
+
+    @Transactional
+    @Override
+    public void run(String... args) {
+
+        // Idempotency guard (so we don't re-seed every restart)
+        if (authorRepository.count() > 0 || bookRepository.count() > 0) {
+            System.out.println("Bootstrap skipped (data already present).");
+            return;
+        }
+
+        // 1) Create transient entities
+        Author eric = new Author();
+        eric.setFirstName("Eric");
+        eric.setLastName("Guru");
+
+        Author rod = new Author();
+        rod.setFirstName("Rod");
+        rod.setLastName("Johnson");
+
+        Book ddd = new Book();
+        ddd.setTitle("Domain Driven Design");
+        ddd.setIsbn("123456");
+
+        Book noEJB = new Book();
+        noEJB.setTitle("J2EE Development without EJB");
+        noEJB.setIsbn("54757585");
+
+        // 2) Save them (become MANAGED, IDs assigned)
+        authorRepository.save(eric);
+        authorRepository.save(rod);
+        bookRepository.save(ddd);
+        bookRepository.save(noEJB);
+
+        // 3) LINK ON OWNER SIDE (Book owns @ManyToMany)
+        ddd.getAuthors().add(eric);    // OWNER side update persists the join row
+        noEJB.getAuthors().add(rod);
+
+        // (Optional) mirror inverse side for in-memory consistency
+        eric.getBooks().add(ddd);
+        rod.getBooks().add(noEJB);
+
+        // 4) Persist the OWNER so Hibernate writes the join table rows
+        bookRepository.save(ddd);
+        bookRepository.save(noEJB);
+
+        System.out.println("In BootstrapData");
+        System.out.println("Author count: " + authorRepository.count());
+        System.out.println("Book count: " + bookRepository.count());
+
+        // 5) Verify true DB state: flush pending SQL and clear L1 cache
+        entityManager.flush(); // force SQL execution now
+        entityManager.clear(); // detach everything
+
+        // 6) Fresh loads (force DB round-trip)
+        Author ericDb = authorRepository.findById(eric.getId()).orElseThrow();
+        System.out.println("Eric’s books (from DB): " + ericDb.getBooks().size()); // expect 1
+
+        Book dddDb = bookRepository.findById(ddd.getId()).orElseThrow();
+        System.out.println("DDD book authors (from DB): " + dddDb.getAuthors().size()); // expect 1
+
+        // 7) DEMO: detaching + merging
+        // Detach just one entity
+        entityManager.detach(ericDb);  // ericDb becomes DETACHED
+
+        // Modify the detached instance (JPA won't auto-track this change)
+        ericDb.setLastName("G.");
+
+        // Re-merge to persist changes:
+        Author managedAgain = entityManager.merge(ericDb); // managed copy
+        // (Alternatively: authorRepository.save(ericDb);)
+
+        // Optional: verify change (still in same transaction)
+        entityManager.flush();
+        entityManager.clear();
+        Author verify = authorRepository.findById(managedAgain.getId()).orElseThrow();
+        System.out.println("Eric’s lastName (from DB): " + verify.getLastName()); // "G."
+    }
+}
+----
+
+=== Many-to-Many: Owner vs Inverse (refresh)
+- Only the **owning side** writes the join table.
+- If `Book` owns the relation (`@JoinTable(...)` in `Book`), then:
+  - Link with `book.getAuthors().add(author)` and save the **Book**.
+  - Updating only `author.getBooks()` (inverse) won’t persist the link (it changes in-memory state only).
+
+=== Verification Patterns
+
+*Pattern A: flush + clear, then reload*
+1. `entityManager.flush()` — push pending SQL.
+2. `entityManager.clear()` — detach cache.
+3. `repository.findById()` — guaranteed DB round-trip.
+
+*Pattern B: separate transaction (service method)*
+- Put verification in another `@Transactional` method (in a different bean or via self-injection proxy) to get a brand-new persistence context.
+
+=== Common Pitfalls & Tips
+- *LazyInitializationException*: accessing LAZY collections outside a transaction. Fix by annotating with `@Transactional` or using a fetch-join query.
+- *Inverse-only updates*: won’t write join rows. Always update the **owner**.
+- *Detached edits lost*: if you changed a detached entity, call `merge()` or `save()` to reattach before commit.
+- *equals()/hashCode()*: prefer ID-based implementations for entities used in `Set<>`.
+- *Naming the join table*: name reflects owner and column order, e.g. `book_author` with (`book_id`, `author_id`).
+
+=== Quick Lifecycle Timeline (mental model)
+
+- *new Author()* -> TRANSIENT (no tracking)
+- *save(author)* -> MANAGED (ID assigned, tracked)
+- *clear() / tx commit* -> DETACHED (no tracking)
+- *merge(detachedAuthor)* -> returns MANAGED copy (changes will persist)
+- *remove(entity)* -> REMOVED (deleted on flush/commit)
+
+
+
+
+== JPA: persist() vs merge() vs Spring Data JPA save()
+
+=== TL;DR
+- `EntityManager.persist(entity)` ? **for new (transient)** entities. Makes it **managed**. No return value.
+- `EntityManager.merge(detached)` ? **for detached** entities. Returns a **new managed copy**; original stays **detached**.
+- `Spring Data JPA repository.save(entity)` ? Delegates to **persist OR merge**:
+- If **ID is null** ? behaves like *persist* (insert).
+- If **ID is non-null** ? behaves like *merge* (update).
+
+---
+
+=== 1) EntityManager.persist(...)
+*Use for:* brand?new entities (no ID, transient)
+
+*Behavior:*
+- Transitions the object to **managed** state in the current persistence context.
+- Schedules an **INSERT** on flush/commit.
+- Returns **void** (no new instance created).
+
+.Example
+[source,java]
+-----
+class main {
+ public void foo(){
+    Author a = new Author();          // transient
+    a.setFirstName("Alice");
+    em.persist(a);                    // a becomes MANAGED
+    System.out.println(a.getId());    // may be non-null already (depends on generator)
+  }
+}
+-----
+*Notes:*
+- With `GenerationType.IDENTITY`, the INSERT happens earlier to obtain the ID.
+- With sequence/table generators, the ID can be assigned before flush.
+- `persist()` on an entity that already exists (same PK in DB) ? throws error on flush.
+
+---
+
+=== 2) EntityManager.merge(...)
+*Use for:* **detached** entities (e.g., after `clear()` or from another transaction)
+
+*Behavior:*
+- Creates/returns a **managed** instance (`managed = em.merge(detached)`).
+- **Copies state** from the detached object into the managed one.
+- The original detached parameter **stays detached**.
+- Schedules **INSERT** (if PK not found) or **UPDATE** (if PK exists) for the managed copy.
+
+.Example
+[source,java]
+----
+class main {
+ public void foo(){
+    Author detached = "--";                 // has ID, but DETACHED
+    detached.setLastName("Updated");
+    Author managed = em.merge(detached);   // managed != detached
+    // keep using 'managed' from now on
+  }
+}
+----
+*Important gotcha:*
+- **Null-overwrite risk**: `merge` copies **all** fields from the detached source. If some fields are `null` in the detached object (because your DTO didn’t carry them), they can overwrite DB values. Use a patch/update strategy (load managed entity, update only intended fields) to avoid unintended nulling.
+
+---
+
+=== 3) Spring Data JPA: save(...)
+*Behavior summary:*
+- **ID == null** ? treated as **new** ? INSERT (like `persist`).
+- **ID != null** ? treated as **detached** ? UPDATE (like `merge`).
+
+[source, java]
+--
+class main {
+
+ public void foo(){
+
+    Author a = new Author();
+    a.setFirstName("Bob");
+    Author saved = authorRepository.save(a);   // INSERT; 'saved' is managed
+
+    Author dto = new Author(); // UPDATE (detached)
+    dto.setId(saved.getId());                  // existing PK
+    dto.setLastName("Johnson");                // only this is set
+    authorRepository.save(dto);
+  }
+}// behaves like merge: beware null-overwrite!
+--
+
+*saveAndFlush()*:
+- Forces flush immediately after save (useful for early constraint checking or when you need the INSERT to happen now).
+
+
+=== Choosing an approach (patterns)
+
+.Pattern A: New entity
+- **Use** `persist()` or `save()` with null ID.
+- Then work with the same reference (it’s managed).
+
+.Pattern B: Update with safety (no null overwrites)
+- Load **managed** entity from DB ? update **only the fields you intend** ? commit.
++
+[source,java]
+----
+@Transactional
+public void updateAuthor(Long id, AuthorPatch patch) {
+    Author managed = authorRepository.findById(id).orElseThrow();
+    if (patch.getFirstName() != null) managed.setFirstName(patch.getFirstName());
+    if (patch.getLastName()  != null) managed.setLastName(patch.getLastName());
+    // no explicit save needed; transaction commit will flush
+}
+----
+
+.Pattern C: Detached graph coming from client
+- **Avoid** direct `merge()` unless you fully control all fields.
+- Prefer: reload managed entity, copy over intended fields (like Pattern B).
+- If you must `merge`, ensure your DTO sets **all** fields correctly (including associations), or you may lose data.
+
+---
+
+=== Collections & Many?to?Many nuances
+- `merge()` on entities with collections can **replace** entire collections depending on how you populate the detached graph.
+- Safer pattern: load managed parent, then **add/remove** items on the **owning side** collection.
+- Example (owner = `Book`):
++
+[source,java]
+----
+@Transactional
+public void linkAuthorToBook(Long authorId, Long bookId) {
+    Book  book  = bookRepository.findById(bookId).orElseThrow();   // MANAGED
+    Author author = authorRepository.findById(authorId).orElseThrow(); // MANAGED
+    book.getAuthors().add(author);   // update OWNER
+    // Optional: mirror inverse for in-memory consistency
+    author.getBooks().add(book);
+    // No explicit save needed with JPA if inside @Transactional (dirty checking)
+}
+----
+
+---
+
+=== Return values and which instance to keep using
+- `persist(entity)` ? **keep using the same reference** (now managed).
+- `merge(detached)` ? **use the returned instance** (the parameter remains detached).
+- `save(entity)` ? returns a reference you can use. Inside a transaction it's typically the same; across transactions, always reload if needed.
+
+---
+
+=== Common pitfalls & best practices
+- *Pitfall:* Updating a detached entity and forgetting to `merge()`/`save()` ? changes are lost.
+- *Pitfall:* Relying on `merge()` with partial DTOs ? accidental null overwrites.
+- *Best practice:* Prefer **load?modify?commit** pattern for updates.
+- *Best practice:* For Many?to?Many, **update owner’s collection**; mirror inverse in memory; let JPA flush.
+- *Best practice:* Use `@Transactional` around write operations; avoid accessing LAZY collections outside transactions.
+- *Best practice:* Use helper methods to keep both sides of bi?directional relationships in sync.
+
+---
+
+=== Quick reference table
+
+[cols="1,3,3,3", options="header"]
+|===
+| API
+| Intended for
+| Returns
+| Notes
+
+| `em.persist(e)`
+| New/transient entity (no ID)
+| void (same instance becomes managed)
+| Schedules INSERT. ID often available immediately (depends on generator).
+
+| `em.merge(e)`
+| Detached entity (has ID)
+| **Managed copy** (use this one)
+| Copies all fields; beware null?overwrites and collection replacement.
+
+| `repo.save(e)`
+| New (ID null) ? insert; Existing (ID set) ? update
+| Managed instance (provider dependent, usually same ref in tx)
+| Convenient wrapper. `saveAndFlush()` to force early flush.
+|===
+
+== Demo: Same Instance vs Fresh Instance (identityHashCode) and Owner Updates
+
+This demo shows:
+1) Within the same persistence context (same `@Transactional` method), fetching the same entity often returns the **same managed instance**.
+2) After `flush()` + `clear()`, fetching returns a **fresh** instance (new identity).
+3) Updating the **owning side** of a Many-to-Many persists the join table row.
+
+.Sample runner
+[source,java]
+----
+@Component
+@Order(99)
+public class IdentityDemoRunner implements CommandLineRunner {
+
+    @PersistenceContext
+    private EntityManager em;
+
+    private final IAuthorRepository authorRepo;
+    private final IBookRepository bookRepo;
+
+    public IdentityDemoRunner(IAuthorRepository authorRepo, IBookRepository bookRepo) {
+        this.authorRepo = authorRepo;
+        this.bookRepo = bookRepo;
+    }
+
+    @Transactional
+    @Override
+    public void run(String... args) {
+        Author a = new Author();
+        a.setFirstName("Alice");
+        a.setLastName("Smith");
+        authorRepo.save(a); // 'a' becomes MANAGED
+
+        System.out.println("[T1] a id=" + a.getId()
+            + ", identity=" + System.identityHashCode(a));
+
+        Author aAgain = authorRepo.findById(a.getId()).orElseThrow();
+        System.out.println("[T1] aAgain id=" + aAgain.getId()
+            + ", identity=" + System.identityHashCode(aAgain));
+        System.out.println("   -> same reference? " + (a == aAgain)); // likely true
+
+        em.flush();  // write pending SQL
+        em.clear();  // DETACH all managed entities
+
+        Author aFresh = authorRepo.findById(a.getId()).orElseThrow();
+        System.out.println("[T1] aFresh id=" + aFresh.getId()
+            + ", identity=" + System.identityHashCode(aFresh));
+        System.out.println("   -> same as 'a'? " + (a == aFresh)); // false
+
+        Book b = new Book();
+        b.setTitle("Hibernate Hands-On");
+        b.setIsbn("ISBN-XYZ");
+        bookRepo.save(b);
+
+        // OWNER side update (Book owns @ManyToMany)
+        b.getAuthors().add(aFresh);
+        aFresh.getBooks().add(b); // optional mirror
+        bookRepo.save(b); // persist OWNER -> join row written
+
+        em.flush();
+        em.clear();
+
+        Author verifyAuthor = authorRepo.findById(a.getId()).orElseThrow();
+        Book verifyBook = bookRepo.findById(b.getId()).orElseThrow();
+
+        System.out.println("[VERIFY] Author.books size = " + verifyAuthor.getBooks().size()); // 1
+        System.out.println("[VERIFY] Book.authors size = " + verifyBook.getAuthors().size()); // 1
+    }
+}
+----
+
+.Key takeaways
+- Same transaction ? same persistence context ? **same instances** may be returned on repeated `findById`.
+- `flush()` writes SQL; `clear()` detaches all; the next `findById` returns a **fresh** instance.
+- Many-to-Many: only the **owner** writes the join table. If owner is `Book`, call `book.getAuthors().add(author)` and save the Book.
+- Use `System.identityHashCode(...)` to visualize object identity during learning/debugging.
+
+== Demo: DETACHED ? MERGE ? MANAGED (identity and DB verification)
+
+This demo shows:
+- A managed entity becomes **DETACHED** (via `detach()`).
+- We edit the **detached** object (JPA is not tracking it).
+- We call `merge(detached)` ? JPA creates/returns a **new MANAGED** instance (`managedAgain`).
+- The **returned managed** instance is **not** the same reference as the detached one.
+- After `flush()` + `clear()` we re-read from DB to confirm the change was persisted.
+
+.Sample runner
+[source,java]
+----
+@Component
+@Order(100)
+public class MergeDemoRunner implements CommandLineRunner {
+
+    @PersistenceContext
+    private EntityManager em;
+
+    private final IAuthorRepository authorRepo;
+
+    public MergeDemoRunner(IAuthorRepository authorRepo) {
+        this.authorRepo = authorRepo;
+    }
+
+    @Transactional
+    @Override
+    public void run(String... args) {
+        Author a = new Author();
+        a.setFirstName("Carol");
+        a.setLastName("Original");
+        authorRepo.save(a); // MANAGED
+
+        System.out.println("[MERGE] managed a id=" + a.getId()
+            + ", identity=" + System.identityHashCode(a));
+
+        em.flush();
+        em.detach(a); // now DETACHED
+
+        a.setLastName("DetachedChange"); // change on DETACHED object
+        System.out.println("[MERGE] detached a   identity=" + System.identityHashCode(a)
+            + " (lastName=" + a.getLastName() + ")");
+
+        Author managedAgain = em.merge(a); // returns a NEW MANAGED instance
+        System.out.println("[MERGE] managedAgain identity=" + System.identityHashCode(managedAgain)
+            + " (lastName=" + managedAgain.getLastName() + ")");
+        System.out.println("[MERGE] same instance? " + (a == managedAgain)); // false
+
+        em.flush();
+        em.clear();
+
+        Author verify = authorRepo.findById(managedAgain.getId()).orElseThrow();
+        System.out.println("[MERGE][VERIFY] DB lastName=" + verify.getLastName()); // DetachedChange
+    }
+}
+----
+
+.Key takeaways
+- `detach(entity)` makes a previously managed entity **DETACHED** (no tracking).
+- Edits to a detached object do **not** auto-persist.
+- `merge(detached)` copies state into a **new managed** instance and returns it.
+- Always continue with the **returned** instance from `merge()`.
+- Use `flush()` + `clear()` (or a new transaction) to force a **real DB** verification.
+
+.Caution on merge (null-overwrite)
+- `merge` copies **all** fields from the detached object. If the detached object
+has `null` fields (e.g., DTO missing values), those `null`s can overwrite DB values.
+- Safer pattern for partial updates: **load managed**, update only intended fields, commit.
+
+
+== Safe Partial Updates (avoid null-overwrite on merge/save)
+
+*Problem:*
+When a DTO only carries some fields, calling `merge(detached)` or `save(dtoAsEntity)` can
+**overwrite non-provided fields with null**. This happens because `merge` copies **all** fields
+from the detached object.
+
+*Goal:*
+Update only the fields the client actually sent (PATCH behavior), leaving other values unchanged.
+
+==== Pattern A: Load–Modify–Commit (recommended)
+
+.Example
+[source,java]
+
+----
+
+@Service
+public class AuthorService {
+
+    private final IAuthorRepository authorRepo;
+
+    public AuthorService(IAuthorRepository authorRepo) {
+        this.authorRepo = authorRepo;
+    }
+
+    @Transactional
+    public Author patchAuthor(Long id, AuthorPatch dto) {
+        Author managed = authorRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Author not found: " + id));
+
+        // Apply only provided fields (no null-overwrite)
+        if (dto.getFirstName() != null) {
+            managed.setFirstName(dto.getFirstName());
+        }
+        if (dto.getLastName() != null) {
+            managed.setLastName(dto.getLastName());
+        }
+        if (dto.getEmail() != null) {
+            managed.setEmail(dto.getEmail());
+        }
+
+        // For collections/relations: update on the OWNER side if needed
+        // e.g. add/remove books on Book.getAuthors() if Book owns the relation
+
+        // No explicit save required; @Transactional + dirty checking persists changes
+        return managed;
+    }
+}
+----
+
+Simple DTO (nullable fields mean “optional”):
+[source,java]
+----
+public class AuthorPatch {
+    private String firstName; // null => don't change
+    private String lastName;  // null => don't change
+    private String email;     // null => don't change
+    // getters/setters
+}
+----
+
+==== Pattern B: Manual "applyNonNull" Mapper
+
+[source,java]
+----
+@Component
+public class AuthorPatchMapper {
+    public void apply(AuthorPatch src, Author target) {
+        if (src.getFirstName() != null) target.setFirstName(src.getFirstName());
+        if (src.getLastName()  != null) target.setLastName(src.getLastName());
+        if (src.getEmail()     != null) target.setEmail(src.getEmail());
+    }
+}
+----
+
+Use in service:
+[source,java]
+----
+@Transactional
+public Author patchAuthor(Long id, AuthorPatch dto) {
+    Author managed = authorRepo.findById(id).orElseThrow();
+    patchMapper.apply(dto, managed);
+    return managed;
+}
+----
+
+==== Pattern C: MapStruct (with @BeanMapping(ignoreByDefault = true))
+
+If you prefer codegen, MapStruct can generate a partial update method that only maps present fields.
+
+[source,java]
+----
+@Mapper(componentModel = "spring")
+public interface AuthorPatchStruct {
+
+    @BeanMapping(ignoreByDefault = true)
+    void updateAuthorFromPatch(AuthorPatch patch, @MappingTarget Author entity);
+
+    // For each property you want to allow patching, add @Mapping
+    @Mapping(target = "firstName", source = "firstName")
+    @Mapping(target = "lastName",  source = "lastName")
+    @Mapping(target = "email",     source = "email")
+    void mapAllowedFields(AuthorPatch patch, @MappingTarget Author entity);
+}
+----
+
+*Note:* Depending on MapStruct version, you can consolidate the annotations; the key is using
+`@BeanMapping(ignoreByDefault = true)` and `@MappingTarget`.
+
+==== Relations & Collections (Many?to?Many etc.)
+- **Update on the owning side** to persist links. Example (owner = `Book`):
++
+[source,java]
+----
+@Transactional
+public void addAuthorToBook(Long bookId, Long authorId) {
+    Book book = bookRepo.findById(bookId).orElseThrow();
+    Author author = authorRepo.findById(authorId).orElseThrow();
+    book.getAuthors().add(author);     // OWNER side update
+    author.getBooks().add(book);       // mirror inverse in-memory (optional)
+}
+----
+- For PATCH operations that add/remove items, **explicitly** add/remove from the owner’s collection.
+- Avoid replacing full collections from a DTO unless you intend to.
+
+==== Why not merge(detachedDTO)?
+- `merge` copies **all fields** and may set DB values to `null` where your DTO had nulls.
+- For partial updates, prefer **load managed ? selectively set fields ? commit**.
+
+==== Pitfalls to avoid
+- ? Passing a partially filled entity to `save(...)`: may null-out other fields.
+- ? Replacing collections wholesale from a DTO: can drop existing links unintentionally.
+- ? Updating only the inverse side in bi?directional relations: join rows won’t be written.
+
+==== Extras
+- Validation: run Bean Validation (e.g., `@NotBlank`) on DTO or at service layer as needed.
+- Concurrency: consider optimistic locking with `@Version` to detect lost updates.
+- Auditing: add `@CreatedDate`, `@LastModifiedDate` with Spring Data auditing if needed.
+
+==== TL;DR
+- For PATCH: **load managed entity**, set only fields that are present, rely on transaction commit.
+- Use a mapper (manual or MapStruct) to keep logic clean.
+- Be **owner?aware** when updating relations.
+
+
+== Optimistic Locking with @Version
+
+=== Why
+- Problem: two users load the same row, both edit, both save ? the last one silently overwrites the first.
+- Solution: `@Version` detects conflicting concurrent updates.
+- Behavior: Hibernate includes the version in the `WHERE` clause of `UPDATE`.
+If the version doesn’t match ? **0 rows updated** ? exception is thrown.
+
+=== Mapping
+[source,java]
+----
+@Entity
+public class Book {
+    @Id @GeneratedValue
+    private Long id;
+
+    private String title;
+
+    @Version
+    private Long version; // managed by JPA
+}
+----
+
+=== How It Works
+1. Load Book(id=10) ? version=5.
+2. Two transactions (T1 and T2) both see version=5.
+3. T1 updates title ? SQL: `UPDATE book SET title=?, version=6 WHERE id=10 AND version=5;`
+? succeeds, DB now version=6.
+4. T2 updates isbn ? SQL: `UPDATE book SET isbn=?, version=6 WHERE id=10 AND version=5;`
+? 0 rows updated ? `OptimisticLockException`.
+
+=== Exceptions
+- JPA: `jakarta.persistence.OptimisticLockException`
+- Hibernate: `StaleObjectStateException`
+- Spring: `ObjectOptimisticLockingFailureException`
+
+=== Example Service
+[source,java]
+----
+@Transactional
+public void updateTitle(Long id, String newTitle) {
+    Book b = repo.findById(id).orElseThrow();
+    b.setTitle(newTitle);
+    // On commit, Hibernate bumps version and checks row count
+}
+----
+
+=== Retry Pattern
+[source,java]
+----
+public void safeUpdate(Long id, String newTitle) {
+    int attempts = 0;
+    while (true) {
+        try {
+            doUpdate(id, newTitle);
+            return;
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            if (++attempts >= 3) throw ex; // give up after 3 retries
+        }
+    }
+}
+
+@Transactional
+protected void doUpdate(Long id, String newTitle) {
+    Book b = repo.findById(id).orElseThrow();
+    b.setTitle(newTitle);
+}
+----
+
+=== Key Points
+- `@Version` column auto-managed; don’t set it manually.
+- Prevents **silent overwrites** in concurrent edits.
+- For Many-to-Many, modifying the **owning side collection** increments the owner’s version.
+- Best practice for web APIs: include `version` in DTOs and reject updates if client’s version ? DB version (? return HTTP 409 Conflict).

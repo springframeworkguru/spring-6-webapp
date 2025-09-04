@@ -181,3 +181,62 @@ Notes:
 * One row = one link between a Book and an Author.
 * A book with N authors → N rows with the same `book_id`.
 * An author with M books → M rows with the same `author_id`.
+
+
+== H2 Database Console (Inspecting Hibernate Tables)
+
+Spring Boot can auto-configure the in-memory **H2 database** for quick dev/testing.
+You can use the **H2 Console** (a small web UI) to inspect the tables Hibernate created.
+
+== (excursion) How to enable the h2 console
+In `application.properties` (or `application.yml`):
+
+[source,properties]
+----
+# Enable the H2 web console
+spring.h2.console.enabled=true
+# Path for the console (default: /h2-console)
+spring.h2.console.path=/h2-console
+
+# Show SQL Hibernate generates (optional)
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+----
+
+=== How to open it
+1. Start your Spring Boot app.
+2. In browser → go to:
+http://localhost:8080/h2-console
+3. Login:
+- **JDBC URL** (for in-memory DB): `jdbc:h2:mem:testdb`
+(or copy the URL Spring prints at startup, e.g. `jdbc:h2:mem:3ae28444...`)
+- **User:** `sa`
+- **Password:** (leave empty unless set in config)
+
+=== Inspecting tables
+- Left sidebar shows the schemas (tables, sequences, etc.).
+- Click a table (e.g. `BOOK_AUTHOR`) to preview.
+- Or type SQL manually in the editor, e.g.:
++
+[source,sql]
+----
+SELECT * FROM AUTHOR;
+SELECT * FROM BOOK;
+SELECT * FROM BOOK_AUTHOR;
+----
+
+=== Notes
+- Column **order** in the UI is not guaranteed (Hibernate chooses when generating DDL).
+- What matters are the **column names** and the **foreign key constraints**.
+- For full schema details:
++
+[source,sql]
+----
+SHOW CREATE TABLE BOOK_AUTHOR;
+----
++
+This shows the exact DDL Hibernate used.
+
+=== TL;DR
+Enable console → open `/h2-console` → log in with JDBC URL → run `SELECT * FROM ...`
+Handy to check what Hibernate really created!
