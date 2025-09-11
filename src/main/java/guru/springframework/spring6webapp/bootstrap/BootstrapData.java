@@ -63,15 +63,30 @@ public class BootstrapData implements CommandLineRunner {
         Publisher penguinSaved = publisherRepository.save(penguin);
         Publisher macmillanSaved = publisherRepository.save(macmillan);
 
-        // Add relationships
+
+        // Add relationships (call a collection, add a relationship to it, save to repository)
         ericSaved.getBooks().add(dddSaved);
-        rodSaved.getBooks().add(noEJBSaved);
         authorRepository.save(ericSaved);
+        rodSaved.getBooks().add(noEJBSaved);
         authorRepository.save(rodSaved);
+
+        penguinSaved.getBooks().add(dddSaved);
+        publisherRepository.save(penguinSaved);
+        macmillanSaved.getBooks().add(noEJBSaved);
+        publisherRepository.save(macmillanSaved);
+
+        dddSaved.getAuthors().add(ericSaved);
+        dddSaved.setPublisher(penguinSaved);
+        bookRepository.save(dddSaved);
+        noEJBSaved.getAuthors().add(rodSaved);
+        noEJBSaved.setPublisher(macmillanSaved);
+        bookRepository.save(noEJBSaved);
 
         System.out.println("In Bootstrap");
         System.out.println("Authors Count: " + authorRepository.count());
         System.out.println("Books Count: " + bookRepository.count());
         System.out.println("Publishers Count: " + publisherRepository.count());
+        System.out.println(dddSaved.getTitle() + ": " + dddSaved.getAuthors().stream().findFirst().map(Author::getLastName).orElse("Unknown"));
+        System.out.println(noEJBSaved.getTitle() + ": " + noEJBSaved.getAuthors().stream().findFirst().map(Author::getLastName).orElse("Unknown"));
     }
 }
