@@ -1,0 +1,209 @@
+= Spring MVC Lesson – Detailed Explanation (Guru Course)
+:toc:
+:toclevels: 3
+:sectnums:
+
+== What is MVC in Spring?
+MVC = Model, View, Controller.
+
+* **Model** ? Your domain objects (`Book`, `Publisher`), and also the `Model` object passed to views.
+* **View** ? A Thymeleaf template (`books.html`) that renders HTML with dynamic data.
+* **Controller** ? A class annotated with `@Controller` that handles HTTP requests, talks to services, and returns which view to render.
+
+== Request Flow (step by step)
+1. Browser requests URL `/books`.
+2. DispatcherServlet (Spring MVC core) finds which controller method is mapped.
+3. `BookController.getBooks()` runs.
+4. Controller calls `bookService.findAll()`.
+5. Service delegates to `bookRepository.findAll()`.
+6. Repository is a Spring Data interface; Spring generates its implementation automatically.
+7. Controller puts result into the `Model` under the key `"books"`.
+8. Controller returns the string `"books"`. This is the **logical view name**.
+9. ViewResolver maps `"books"` ? `src/main/resources/templates/books.html`.
+10. Thymeleaf fills the HTML template with the model data.
+11. Rendered HTML is sent back to the browser.
+
+== The Controller
+[source,java]
+----
+@Controller
+public class BookController {
+
+    private final IBookService bookService;
+
+    public BookController(IBookService bookService) {
+        this.bookService = bookService;
+    }
+
+    @RequestMapping("/books")
+    public String getBooks(Model model) {
+        model.addAttribute("books", bookService.findAll());
+        return "books";
+    }
+}
+----
+=== Explanation
+* `@Controller`
+- Marks the class as a **web controller**.
+- Spring scans for this annotation and registers it as a bean.
+
+* `private final IBookService bookService;`
+- The controller **depends** on a service.
+- It does not create the service itself — Spring **injects** it via constructor injection.
+
+* `public BookController(IBookService bookService)`
+- This constructor is how dependency injection happens.
+- Spring sees that `IBookService` is needed, finds a bean that implements it (`BookService`), and passes it in.
+
+* `@RequestMapping("/books")`
+- Maps HTTP requests with path `/books` to this method.
+- Any GET request to `http://localhost:8081/books` will trigger this method.
+
+* `public String getBooks(Model model)`
+- The `Model` is given by Spring automatically when the method is called.
+- It is a container for data you want to send to the view.
+
+* `model.addAttribute("books", bookService.findAll());`
+- Adds data under the name `"books"`.
+- Later, Thymeleaf can access this with `${books}`.
+
+* `return "books";`
+- This is the **logical view name**.
+- Spring does **not** return a literal HTML page. Instead, the `ViewResolver` takes `"books"` and looks for a file `templates/books.html`.
+- That file is then rendered.
+
+== The Service
+[source,java]
+----
+@Service
+public class BookService implements IBookService {
+
+    private final IBookRepository bookRepository;
+
+    public BookService(IBookRepository bookRepository) {
+        this.bookRepository = bookRepository;
+    }
+
+    @Override
+    public Iterable<Book> findAll() {
+        return bookRepository.findAll();
+    }
+}
+----
+=== Explanation
+* `@Service`
+- Marks the class as part of the **service layer**.
+- Spring registers it as a bean so it can be injected into controllers.
+
+* Implements `IBookService`
+- We code to an interface, not an implementation.
+- Makes testing and swapping implementations easier.
+
+* `private final IBookRepository bookRepository;`
+- The service depends on the repository.
+- Again, Spring injects it automatically.
+
+* `public Iterable<Book> findAll()`
+- Delegates directly to the repository.
+- Returns all books from the database.
+
+== The Repository (implicit in this step)
+[source,java]
+----
+@Repository
+public interface IBookRepository extends CrudRepository<Book, Long> {
+}
+----
+=== Explanation
+* `@Repository` (optional on Spring Data repos, but marks it as persistence layer).
+* Extends `CrudRepository<Book, Long>`
+- Generic parameters mean: entity type = `Book`, ID type = `Long`.
+* Spring Data generates an implementation at runtime — you never write the class yourself.
+
+== The Domain (Book entity excerpt)
+[source,java]
+----
+@Entity
+public class Book {
+    @Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
+    private Long id;
+    private String title;
+    private String isbn;
+
+    @ManyToOne
+    private Publisher publisher;
+}
+----
+=== Explanation
+* `@Entity` ? Tells JPA this class maps to a database table.
+* `@Id` ? Primary key.
+* `@GeneratedValue` ? Let the DB auto-generate the ID.
+* `@ManyToOne` ? Many books can have one publisher.
+
+The **Book component** is known to Thymeleaf because:
+- Controller puts `Iterable<Book>` into the `Model` under `"books"`.
+- Thymeleaf sees `${books}` ? a collection of Book objects.
+- Inside the loop, each element is a `Book`, so `${book.title}`, `${book.publisher.name}` works.
+
+== The View (Thymeleaf template)
+[source,html]
+----
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Spring Framework Guru</title>
+</head>
+<body>
+<h1>Book List</h1>
+
+<table>
+  <tr>
+    <th>ID</th>
+    <th>Title</th>
+    <th>Publisher</th>
+  </tr>
+  <tr th:each="book : ${books}">
+    <td th:text="${book.id}">123</td>
+    <td th:text="${book.title}">Spring in Action</td>
+    <td th:text="${book.publisher.name}">Wrox</td>
+  </tr>
+</table>
+</body>
+</html>
+----
+=== Explanation of Syntax
+* `xmlns:th="http://www.thymeleaf.org"` ? Activates Thymeleaf attributes (`th:*`).
+* `th:each="book : ${books}"`
+- Loops over the collection `books`.
+- Each loop assigns the current element to variable `book`.
+* `th:text="${book.id}"`
+- Replaces the content of the `<td>` with the book’s ID.
+- If Thymeleaf wasn’t running, the fallback text (`123`) would show.
+* `th:text="${book.publisher.name}"`
+- Walks the object graph: `book ? publisher ? name`.
+
+=== Why fallback text?
+Thymeleaf templates can still be opened in a browser without a server.
+- The inner text (like `123`) acts as a static placeholder.
+- When Thymeleaf runs, it replaces it with the real value.
+
+== Why does the Controller return a String?
+In Spring MVC:
+* The return value of a controller method is usually the **logical view name** (String).
+* Example: `"books"` ? Thymeleaf template `books.html`.
+* Spring could also return `ResponseEntity` or `@ResponseBody` (for REST), but in MVC we return the name of the template.
+
+== Where do dependencies come from?
+* **Model**: Spring MVC creates a `Model` object for each request and passes it into controller methods automatically.
+* **Service**: Spring creates an instance of `BookService` (because it’s annotated `@Service`) and injects it into the controller.
+* **Repository**: Spring Data JPA creates an implementation of `IBookRepository` at runtime and injects it into the service.
+
+== Summary
+* Controller handles HTTP ? adds data to Model ? returns a view name.
+* Service coordinates logic ? delegates to repository.
+* Repository talks to the database (auto-generated by Spring Data).
+* View (Thymeleaf) uses expressions (`${...}`) to insert data into HTML.
+* Spring’s IoC container wires all dependencies together automatically.
+
