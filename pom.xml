@@ -5,14 +5,14 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.0-M3</version>
+        <version>4.0.0-RC1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>guru.springframework</groupId>
     <artifactId>spring-6-webapp</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>spring-6-webapp</name>
-    <description>Spring 6 Web App</description>
+    <description>Spring 7 Web App</description>
 
     <properties>
         <java.version>25</java.version>
@@ -25,7 +25,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
