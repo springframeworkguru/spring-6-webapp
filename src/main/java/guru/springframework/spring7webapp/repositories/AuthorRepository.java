@@ -1,4 +1,4 @@
-package guru.springframework.spring6webapp.repositories;
+package guru.springframework.spring7webapp.repositories;
 
 import guru.springframework.spring6webapp.domain.Author;
 import org.springframework.data.repository.CrudRepository;
