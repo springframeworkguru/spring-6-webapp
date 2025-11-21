@@ -1,4 +1,4 @@
-package guru.springframework.spring6webapp.domain;
+package guru.springframework.spring7webapp.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,13 +9,13 @@ import jakarta.persistence.Id;
  * Created by jt, Spring Framework Guru.
  */
 @Entity
-public class Author {
+public class Book {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
-    private String firstName;
-    private String lastName;
+    private String title;
+    private String isbn;
 
     public Long getId() {
         return id;
@@ -25,19 +25,19 @@ public class Author {
         this.id = id;
     }
 
-    public String getFirstName() {
-        return firstName;
+    public String getTitle() {
+        return title;
     }
 
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
+    public void setTitle(String title) {
+        this.title = title;
     }
 
-    public String getLastName() {
-        return lastName;
+    public String getIsbn() {
+        return isbn;
     }
 
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
+    public void setIsbn(String isbn) {
+        this.isbn = isbn;
     }
 }
