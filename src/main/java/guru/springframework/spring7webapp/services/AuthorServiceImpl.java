@@ -1,7 +1,7 @@
 package guru.springframework.spring6webapp.services;
 
-import guru.springframework.spring6webapp.domain.Author;
-import guru.springframework.spring6webapp.repositories.AuthorRepository;
+import guru.springframework.spring7webapp.domain.Author;
+import guru.springframework.spring7webapp.repositories.AuthorRepository;
 import org.springframework.stereotype.Service;
 
 /**

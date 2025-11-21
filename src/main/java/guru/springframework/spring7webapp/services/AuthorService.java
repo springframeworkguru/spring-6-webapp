@@ -1,6 +1,6 @@
-package guru.springframework.spring6webapp.services;
+package guru.springframework.spring7webapp.services;
 
-import guru.springframework.spring6webapp.domain.Author;
+import guru.springframework.spring7webapp.domain.Author;
 
 /**
  * Created by jt, Spring Framework Guru.
