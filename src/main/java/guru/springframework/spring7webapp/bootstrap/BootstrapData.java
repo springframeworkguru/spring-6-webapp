@@ -1,9 +1,9 @@
-package guru.springframework.spring6webapp.bootstrap;
+package guru.springframework.spring7webapp.bootstrap;
 
-import guru.springframework.spring6webapp.domain.Author;
-import guru.springframework.spring6webapp.domain.Book;
-import guru.springframework.spring6webapp.repositories.AuthorRepository;
-import guru.springframework.spring6webapp.repositories.BookRepository;
+import guru.springframework.spring7webapp.domain.Author;
+import guru.springframework.spring7webapp.domain.Book;
+import guru.springframework.spring7webapp.repositories.AuthorRepository;
+import guru.springframework.spring7webapp.repositories.BookRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
