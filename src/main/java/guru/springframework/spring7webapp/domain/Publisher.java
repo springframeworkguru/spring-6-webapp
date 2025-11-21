@@ -1,4 +1,4 @@
-package guru.springframework.spring6webapp.domain;
+package guru.springframework.spring7webapp.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
